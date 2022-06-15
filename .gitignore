@@ -21,3 +21,4 @@ data.json
 
 # Mac
 .DS_Store
+yarn.lock

@@ -1,21 +1,17 @@
-import {
-  normalizePath,
-  Notice,
-  Plugin,
-} from 'obsidian';
+import { normalizePath, Notice, Plugin } from "obsidian";
 import {
   Annotation,
   ENDPOINTS,
   FeedEntry,
   FeedResponse,
   authedRequest,
-} from './api';
+} from "./api";
 import {
   DEFAULT_SETTINGS,
   MatterSettings,
-  MatterSettingsTab
-} from './settings';
-import { toFilename } from './utils';
+  MatterSettingsTab,
+} from "./settings";
+import { toFilename } from "./utils";
 
 const LOOP_SYNC_INTERVAL = 60 * 1000;
 
@@ -30,21 +26,22 @@ export default class MatterPlugin extends Plugin {
     this.initialSync();
 
     // Set up sync interval
-    this.registerInterval(window.setInterval(async () => {
-      await this.loopSync();
-    }, LOOP_SYNC_INTERVAL));
+    this.registerInterval(
+      window.setInterval(async () => {
+        await this.loopSync();
+      }, LOOP_SYNC_INTERVAL)
+    );
 
     this.addCommand({
-      id: 'matter-sync',
-      name: 'Sync',
+      id: "matter-sync",
+      name: "Sync",
       callback: () => {
         this.sync();
       },
     });
   }
 
-  onunload() {
-  }
+  onunload() {}
 
   async initialSync() {
     // Reset isSyncing when the plugin is loaded.
@@ -52,10 +49,7 @@ export default class MatterPlugin extends Plugin {
     await this.saveSettings();
 
     // Sync on load
-    if (
-      this.settings.accessToken
-      && this.settings.hasCompletedInitialSetup
-    ) {
+    if (this.settings.accessToken && this.settings.hasCompletedInitialSetup) {
       await this.sync();
     } else {
       new Notice("Finish setting up Matter in settings");
@@ -71,12 +65,13 @@ export default class MatterPlugin extends Plugin {
   }
 
   async loopSync() {
-    const msSinceLastSync = new Date().valueOf() - new Date(this.settings.lastSync).valueOf();
+    const msSinceLastSync =
+      new Date().valueOf() - new Date(this.settings.lastSync).valueOf();
     const mssyncInterval = this.settings.syncInterval * 60 * 1000;
     if (
-      this.settings.accessToken
-      && this.settings.hasCompletedInitialSetup
-      && msSinceLastSync >= mssyncInterval
+      this.settings.accessToken &&
+      this.settings.hasCompletedInitialSetup &&
+      msSinceLastSync >= mssyncInterval
     ) {
       this.sync();
     }
@@ -95,13 +90,13 @@ export default class MatterPlugin extends Plugin {
     await this.saveSettings();
 
     try {
-      new Notice('Syncing with Matter');
+      new Notice("Syncing with Matter");
       await this._pageAnnotations();
       this.settings.lastSync = new Date();
-      new Notice('Finished syncing with Matter');
+      new Notice("Finished syncing with Matter");
     } catch (error) {
       console.error(error);
-      new Notice('There was a problem syncing with Matter, try again later.');
+      new Notice("There was a problem syncing with Matter, try again later.");
     }
 
     this.settings.isSyncing = false;
@@ -128,20 +123,20 @@ export default class MatterPlugin extends Plugin {
 
   private async _authedRequest(url: string) {
     try {
-      return (await authedRequest(this.settings.accessToken, url));
+      return await authedRequest(this.settings.accessToken, url);
     } catch (e) {
       await this._refreshTokenExchange();
-      return (await authedRequest(this.settings.accessToken, url));
+      return await authedRequest(this.settings.accessToken, url);
     }
   }
 
   private async _refreshTokenExchange() {
     const headers = new Headers();
-    headers.set('Content-Type', 'application/json');
+    headers.set("Content-Type", "application/json");
     const response = await fetch(ENDPOINTS.REFRESH_TOKEN_EXCHANGE, {
-      method: 'POST',
+      method: "POST",
       headers,
-      body: JSON.stringify({ refresh_token: this.settings.refreshToken })
+      body: JSON.stringify({ refresh_token: this.settings.refreshToken }),
     });
     const payload = await response.json();
     this.settings.accessToken = payload.access_token;
@@ -171,7 +166,10 @@ export default class MatterPlugin extends Plugin {
         await fs.write(entryPath, newContent);
       }
     } else {
-      if (!this.settings.contentMap[entryName] || this.settings.recreateIfMissing) {
+      if (
+        !this.settings.contentMap[entryName] ||
+        this.settings.recreateIfMissing
+      ) {
         await fs.write(entryPath, this._renderFeedEntry(feedEntry));
       }
     }
@@ -180,17 +178,17 @@ export default class MatterPlugin extends Plugin {
     await this.saveSettings();
   }
 
-  private _getPath(name: string){
+  private _getPath(name: string) {
     return normalizePath(`${this.settings.dataDir}/${name}`);
   }
 
   private async _generateEntryName(feedEntry: FeedEntry): Promise<string> {
     const fs = this.app.vault.adapter;
-    let name = `${toFilename(feedEntry.content.title)}.md`
+    let name = `${toFilename(feedEntry.content.title)}.md`;
     let i = 1;
     while (
-      (await fs.exists(this._getPath(name)))
-      && this.settings.contentMap[name] !== feedEntry.id
+      (await fs.exists(this._getPath(name))) &&
+      this.settings.contentMap[name] !== feedEntry.id
     ) {
       i++;
       name = `${toFilename(feedEntry.content.title)}-${i}.md`;
@@ -199,49 +197,73 @@ export default class MatterPlugin extends Plugin {
     return name;
   }
 
-  private _appendAnnotations(feedEntry: FeedEntry, content: string, after: Date): string {
-    const newAnnotations = feedEntry.content.my_annotations.filter(a => new Date(a.created_date) > after);
+  private _appendAnnotations(
+    feedEntry: FeedEntry,
+    content: string,
+    after: Date
+  ): string {
+    const newAnnotations = feedEntry.content.my_annotations.filter(
+      (a) => new Date(a.created_date) > after
+    );
     if (!newAnnotations.length) {
       return content;
     }
 
-    if (content[-1] !== '\n') {
-      content += '\n';
+    if (content[-1] !== "\n") {
+      content += "\n";
     }
 
-    return content + `${newAnnotations.map(this._renderAnnotation).join('\n')}`;
+    return content + `${newAnnotations.map(this._renderAnnotation).join("\n")}`;
   }
 
   private _renderFeedEntry(feedEntry: FeedEntry): string {
-    const annotations = feedEntry.content.my_annotations.sort((a, b) => a.word_start - b.word_start);
+    const annotations = feedEntry.content.my_annotations.sort(
+      (a, b) => a.word_start - b.word_start
+    );
     return `
-## Metadata
 ${this._renderMetadata(feedEntry)}
-## Highlights
+## ${feedEntry.content.title}
 ${annotations.map(this._renderAnnotation).join("\n")}
 `.trim();
   }
 
   private _renderMetadata(feedEntry: FeedEntry): string {
-    let metadata = `* URL: [${feedEntry.content.url}](${feedEntry.content.url})`;
+    let metadata = `url:: [${feedEntry.content.url}](${feedEntry.content.url})`;
     if (feedEntry.content.publication_date) {
       const publicationDate = new Date(feedEntry.content.publication_date);
       const publicationDateStr = publicationDate.toISOString().slice(0, 10);
-      metadata += `\n* Published Date: ${publicationDateStr}`;
+      metadata += `\ndate:: ${publicationDateStr}`;
     }
 
     if (feedEntry.content.author) {
-      metadata += `\n* Author: [[${feedEntry.content.author.any_name}]]`;
+      metadata += `\nauthor:: [[${feedEntry.content.author.any_name}]]`;
     }
 
-    metadata += '\n';
+    if (feedEntry.content.publisher) {
+      metadata += `\npublisher:: [[${feedEntry.content.publisher.any_name}]]`;
+    }
+
+    if (feedEntry.content.tags.length != 0) {
+      metadata += `\ntags::`;
+      for (const tag of feedEntry.content.tags) {
+        metadata += ` #matter/${tag.name}`;
+      }
+    } else {
+      metadata += `\ntags:: #matter`;
+    }
+
+    metadata += "\n";
     return metadata;
   }
 
   private _renderAnnotation(annotation: Annotation) {
     return `
-* ${annotation.text}${annotation.note ? `
-  * **Note**: ${annotation.note}` : ''}
-`.trim()
+* ${annotation.text}${
+      annotation.note
+        ? `
+  * **Note**: ${annotation.note}`
+        : ""
+    }
+`.trim();
   }
 }

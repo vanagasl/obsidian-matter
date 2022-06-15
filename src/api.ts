@@ -1,13 +1,13 @@
-export const CLIENT_TYPE = 'integration';
-export const MATTER_API_VERSION = 'v11';
-export const MATTER_API_DOMAIN = 'api.getmatter.app';
+export const CLIENT_TYPE = "integration";
+export const MATTER_API_VERSION = "v11";
+export const MATTER_API_DOMAIN = "api.getmatter.app";
 export const MATTER_API_HOST = `https://${MATTER_API_DOMAIN}/api/${MATTER_API_VERSION}`;
 export const ENDPOINTS = {
   QR_LOGIN_TRIGGER: `${MATTER_API_HOST}/qr_login/trigger/`,
   QR_LOGIN_EXCHANGE: `${MATTER_API_HOST}/qr_login/exchange/`,
   REFRESH_TOKEN_EXCHANGE: `${MATTER_API_HOST}/token/refresh/`,
-  HIGHLIGHTS_FEED: `${MATTER_API_HOST}/library_items/highlights_feed/`
-}
+  HIGHLIGHTS_FEED: `${MATTER_API_HOST}/library_items/highlights_feed/`,
+};
 
 export interface Annotation {
   created_date: string;
@@ -20,10 +20,20 @@ export interface Annotation {
 export interface Author {
   any_name: string | null;
 }
+export interface Publisher {
+  any_name: string | null;
+}
+
+export interface Tag {
+  created_date: string;
+  name: string;
+}
 
 export interface Content {
   author: Author;
+  publisher: Publisher;
   my_annotations: Annotation[];
+  tags: Tag[];
   publication_date: string;
   title: string;
   url: string;
@@ -53,7 +63,7 @@ export interface QRLoginExchangeResponse {
 class RequestError extends Error {
   response: Response;
 
-  public constructor(response: Response, message?: string,) {
+  public constructor(response: Response, message?: string) {
     super(message);
     this.response = response;
   }
@@ -62,11 +72,11 @@ class RequestError extends Error {
 export async function authedRequest(
   accessToken: string,
   url: string,
-  fetchArgs: RequestInit = {},
+  fetchArgs: RequestInit = {}
 ) {
   const headers = new Headers();
-  headers.set('Authorization', `Bearer ${accessToken}`);
-  headers.set('Content-Type', 'application/json');
+  headers.set("Authorization", `Bearer ${accessToken}`);
+  headers.set("Content-Type", "application/json");
 
   const response = await fetch(url, {
     ...fetchArgs,
@@ -77,5 +87,5 @@ export async function authedRequest(
     throw new RequestError(response, "Matter authenticated request failed");
   }
 
-  return (await response.json());
+  return await response.json();
 }
